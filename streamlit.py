@@ -15,7 +15,7 @@ def start_algorithm():
 
     # Start the supertrend script in the background
     process = subprocess.Popen(
-        ["python", r"C:\Users\Administrator\Desktop\VS\supertrend.py"], 
+        ["python", "supertrend.py"], 
         
       
         start_new_session=True
