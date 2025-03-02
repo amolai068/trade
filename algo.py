@@ -3,9 +3,16 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import subprocess
 import os
+import re
+import datetime
 
-# File to store the PID of the supertrend process
-PID_FILE = "algo_pid.txt"
+# Define a base directory for file storage
+BASE_DIR = "/home/ubuntu/algo_trading"  # Change this as needed
+PID_FILE = os.path.join(BASE_DIR, "algo_pid.txt")
+LOG_FILE = os.path.join(BASE_DIR, "log_output.log")
+
+# Ensure base directory exists
+os.makedirs(BASE_DIR, exist_ok=True)
 
 # Start the algorithm
 def start_algorithm():
@@ -15,9 +22,7 @@ def start_algorithm():
 
     # Start the supertrend script in the background
     process = subprocess.Popen(
-        ["python", "supertrend.py"], 
-        
-      
+        ["python", os.path.join(BASE_DIR, "supertrend.py")],
         start_new_session=True
     )
 
@@ -46,7 +51,7 @@ def stop_algorithm():
         os.remove(PID_FILE)
 
 # Streamlit UI
-st.title("Option Trading Algorithm_1")
+st.title("Option Trading Algorithm")
 
 st.write("Use this app to start or stop the algorithm.")
 
@@ -56,134 +61,72 @@ if st.button("Start Algorithm"):
 if st.button("Stop Algorithm"):
     stop_algorithm()
 
-
-if st.button('Check logs'):
-  
-        # Parse the log file
-
-        import pandas as pd
-        import re
-        log_file = 'log_output.log'
-        
-        
-        
-        # Regex to extract timestamp and message
+# Check logs
+if st.button("Check Logs"):
+    if not os.path.exists(LOG_FILE):
+        st.error("Log file not found!")
+    else:
         log_pattern = re.compile(r"(?P<timestamp>\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}),\d+ - (?P<message>.+)")
-        
-        with open(log_file, "r") as file:
-            times=[]
-            messages=[]
+        times, messages = [], []
+
+        with open(LOG_FILE, "r") as file:
             for line in file:
                 match = log_pattern.search(line)
-                # print(match)
                 if match:
-                    
-                    timestamp = match.group("timestamp")
-                    message = match.group("message")
-                    times.append(timestamp)
-                    messages.append(message)
-        
-            df=pd.DataFrame(messages,times)
-            df.rename(columns={0:'message'},inplace=True)
-        
-            # st.dataframe(df.head())
-            st.dataframe(df.tail())
+                    times.append(match.group("timestamp"))
+                    messages.append(match.group("message"))
 
+        if messages:
+            df = pd.DataFrame(messages, index=times, columns=["Message"])
+            st.dataframe(df.tail())  # Show latest logs
+        else:
+            st.error("No valid log entries found!")
 
-
-
+# Check PnL
 input_date = st.date_input("Select the date", help="Choose a date from the calendar")
-if st.button('check_pnl'):
-  
-    # Input from the user
-    
-    
-    # Check if input is provided
+if st.button("Check PnL"):
     if input_date:
-        # Generate the expected file name
         file_name = f"{input_date} mtm_history.csv"
-        file_path = os.path.join(file_name)
-        
-        # Check if the file exists
+        file_path = os.path.join(BASE_DIR, file_name)
+
         if os.path.exists(file_path):
-            # Read the file into a Pandas DataFrame
             try:
                 df = pd.read_csv(file_path)
                 st.success(f"File '{file_name}' found!")
-
-              # Display the DataFrame
                 st.dataframe(df.tail(1))
 
+                # Compute percentage and format data
+                df["percentage"] = (df["pnl"] / 200000) * 100
+                df.rename(columns={"time": "x", "percentage": "y"}, inplace=True)
+                df["timestamps"] = pd.to_datetime(df["x"])
+                df.set_index("timestamps", inplace=True)
 
+                # Resampling
+                resampled_data = df.resample("1T").first()
+                resampled_data2 = df.resample("15T").first()
+                resampled_data.dropna(inplace=True)
 
-                
-                import datetime
-                data=df
-          
-                
-                # Load the data
-
-                data['percentage'] = (data['pnl'] / 200000) * 100
-                data.rename(columns={'time': 'x', 'percentage': 'y'}, inplace=True)
-                data.reset_index(inplace=True)
-                data['timestamps'] = pd.to_datetime(data['x'])
-                
-                # Set the timestamps as the index
-                data.set_index('timestamps', inplace=True)
-                
-                # Resample data into intervals
-                resampled_data = data.resample('1T').first()
-                resampled_data2 = data.resample('15T').first()
-                
-                # Reset index to make the result user-friendly
-                resampled_data.reset_index(inplace=True)
-                rs = pd.DataFrame(resampled_data)
-                rs2 = pd.DataFrame(resampled_data2)
-                
-                # Create the hours list for the secondary x-axis
-                hours = [datetime.datetime.strptime(d, "%Y-%m-%d %H:%M:%S.%f").strftime("%H:%M") for d in rs2['x']]
-                
-                # Drop NaN values from resampled data
-                rs.dropna(inplace=True)
-                
-                # Create the figure and primary x-axis plot
+                # Create figure
                 fig, ax1 = plt.subplots(figsize=(15, 10))
-                ax1.set_xticks(range(len(hours)))  # Independent tick positions
-                ax1.set_xticklabels(hours)        # Labels from the hours list
-                ax1.set_xlabel('Time')
-                
+                hours = [ts.strftime("%H:%M") for ts in resampled_data2.index]
+                ax1.set_xticks(range(len(hours)))
+                ax1.set_xticklabels(hours)
+                ax1.set_xlabel("Time")
+
                 ax2 = ax1.twiny()
-                
-                # Convert x and y to numpy arrays
-                x = rs['x'].values
-                y = rs['y'].values
-                
-                # Loop through consecutive points and plot segments
+                x, y = resampled_data["x"].values, resampled_data["y"].values
+
+                # Plot segments
                 for i in range(len(x) - 1):
-                    # Define the color based on the sign of the current y value
-                    color = 'blue' if y[i] > 0 else 'purple'
+                    color = "blue" if y[i] > 0 else "purple"
                     ax2.plot(x[i:i+2], y[i:i+2], color=color, linewidth=2)
-                ax2.axhline(0, color='black', linewidth=1, linestyle='--')
-                ax2.xaxis.set_visible(False)
-                
-                # Add labels and title for the plot
-                ax2.set_ylabel('percent(%)')
-                ax2.set_title('Option Trading')
-                
-                # Display the plot in Streamlit
-                st.pyplot(fig)   
+
+                ax2.axhline(0, color="black", linestyle="--")
+                ax2.set_ylabel("Percentage (%)")
+                ax2.set_title("Option Trading Performance")
+
+                st.pyplot(fig)
             except Exception as e:
                 st.error(f"Error reading the file: {e}")
         else:
             st.error(f"File '{file_name}' not found in the directory.")
-
-
-
-
-
-
-
-    
-
-
-
