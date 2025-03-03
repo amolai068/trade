@@ -77,6 +77,7 @@ logger = logging.getLogger()
 # Set display options for pandas
 pd.set_option('display.max_columns', None)
 
+
 import pyotp
 from NorenRestApiPy.NorenApi import  NorenApi
 class ShoonyaApiPy(NorenApi):
@@ -96,7 +97,8 @@ ret = api.login(userid=user, password=pwd, twoFA=pyotp.TOTP(token).now(), vendor
 
 logger.info(ret)
 
-print(ret)
+
+
 import time
 import csv
 from datetime import datetime
@@ -121,6 +123,8 @@ def save_mtm_to_csv(mtm, timestamp):
         
         # Write the MTM data
         writer.writerow({'time': timestamp, 'pnl': mtm})
+
+
 
 
 
@@ -160,11 +164,6 @@ for token in tokens:
     time.sleep(2)  # 2-second delay between subscriptions
 
 
-
-
-
-
-print(feedJson)
 # print(feedJson)
 
 logger.info(feedJson)
