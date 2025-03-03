@@ -15,10 +15,11 @@ def start_algorithm():
 
     # Start the supertrend script in the background
     process = subprocess.Popen(
-        ["python", r"vs\algo_dev\supertrend_options\flask\supertrend1.py"], 
+        ["python3", r"/home/ec2-user/trade/supertrend1.py"], 
         start_new_session=True
     )
 
+    
     # Save the PID to a file
     with open(PID_FILE, "w") as f:
         f.write(str(process.pid))
