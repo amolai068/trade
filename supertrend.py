@@ -458,7 +458,7 @@ while True:
                         price_type='MKT', price=0, trigger_price=0,
                         retention='DAY', remarks='option_exit_put'
                     )
-                    time.sleep(10)
+                    time.sleep(8)
     
                 elif current_position == 'call' and (SL_mtm or Target_mtm or current_signal == 'Buy' or current_time2 > '15:25'):
                     # Exit the call option position on SL hit or signal change from Sell to Buy
@@ -468,7 +468,7 @@ while True:
                         price_type='MKT', price=0, trigger_price=0,
                         retention='DAY', remarks='option_exit_call'
                     )
-                    time.sleep(10)
+                    time.sleep(8)
                 else:
                     continue
     
